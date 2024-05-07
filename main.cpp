@@ -63,26 +63,60 @@ public:
         document_count_++;
 
         unordered_map<string, double> frequencies;
+//        frequencies.reserve(words.size());
+
         for (const auto &word: words) {
             if (!stop_words_.contains(word)) {
                 word_to_doc_ids[word].insert(document_id);
                 frequencies[word] += 1.0 / words.size();
-                doc_word_tf[document_id] = frequencies;
             }
         }
+        doc_word_tf[document_id] = frequencies;
     }
 
     vector<Document> FindTopDocuments(const string &raw_query) const {
         const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query);
 
-        sort(matched_documents.begin(), matched_documents.end(),
-             [](const Document &lhs, const Document &rhs) {
-                 return lhs.relevance > rhs.relevance;
-             });
-        if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
-            matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
+        auto comp_desc = [](const Document &lhs, const Document &rhs) {
+            return lhs.relevance > rhs.relevance;
+        };
+
+        auto comp_asc = [](const Document &lhs, const Document &rhs) {
+            return lhs.relevance < rhs.relevance;
+        };
+
+        if (matched_documents.size() < MAX_RESULT_DOCUMENT_COUNT) {
+            sort(matched_documents.begin(), matched_documents.end(),
+                 comp_desc);
+            return matched_documents;
         }
+
+        vector<Document> result(matched_documents.begin(), matched_documents.begin() + 5);
+
+        std::make_heap(result.begin(), result.end(), comp_asc);
+
+        for (int i = 5; i < matched_documents.size(); i++) {
+            // min heap - min element at the front
+            if (matched_documents[i].relevance > result.front().relevance) {
+                // pop the head and add new element
+                std::pop_heap(result.begin(), result.end(), comp_asc);
+                result.pop_back();
+                result.push_back(matched_documents[i]);
+                // heapify
+                push_heap(result.begin(), result.end(), comp_asc);
+            }
+        }
+
+        std::sort(result.begin(), result.end(), comp_desc);
+
+//        sort(matched_documents.begin(), matched_documents.end(),
+//             [](const Document &lhs, const Document &rhs) {
+//                 return lhs.relevance > rhs.relevance;
+//             });
+//        if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
+//            matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
+//        }
         return matched_documents;
     }
 
