@@ -61,11 +61,13 @@ public:
     void AddDocument(int document_id, const string &document) {
         const vector<string> &words = SplitIntoWordsNoStop(document);
         document_count_++;
+
+        unordered_map<string, double> frequencies;
         for (const auto &word: words) {
             if (!stop_words_.contains(word)) {
                 word_to_doc_ids[word].insert(document_id);
-                DocumentWord dw(document_id, word);
-                doc_word_tf[dw] += 1.0 / words.size();
+                frequencies[word] += 1.0 / words.size();
+                doc_word_tf[document_id] = frequencies;
             }
         }
     }
@@ -91,31 +93,8 @@ private:
         set<string> minus_words;
     };
 
-    struct DocumentWord {
-
-        int doc_id;
-        string word;
-
-        DocumentWord(int docId, const string &word) : doc_id(docId), word(word) {}
-
-        bool operator==(const DocumentWord &rhs) const {
-            return doc_id == rhs.doc_id &&
-                   word == rhs.word;
-        }
-
-        bool operator!=(const DocumentWord &rhs) const {
-            return !(rhs == *this);
-        }
-    };
-
-    struct DocumentWordHash {
-        auto operator()(const DocumentWord &document_word) const -> size_t {
-            return 31 * hash<int>{}(document_word.doc_id) * hash<string>{}(document_word.word);
-        }
-    };
-
     int document_count_ = 0;
-    unordered_map<DocumentWord, double, DocumentWordHash> doc_word_tf;
+    unordered_map<int, unordered_map<string, double>> doc_word_tf;
     unordered_map<string, set<int>> word_to_doc_ids;
     set<string> stop_words_;
 
@@ -157,8 +136,7 @@ private:
                 const set<int> &matched_docs_ids = word_to_doc_ids.at(pw);
                 double word_idf = log(((double) document_count_) / matched_docs_ids.size());
                 for (const auto &doc_id: matched_docs_ids) {
-                    DocumentWord document_word(doc_id, pw);
-                    double dtf = doc_word_tf.at(document_word);
+                    double dtf = doc_word_tf.at(doc_id).at(pw);
                     doc_to_relevance[doc_id] += dtf * word_idf;
                 }
             }
