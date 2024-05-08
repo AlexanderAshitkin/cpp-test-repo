@@ -1,10 +1,10 @@
 #include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
-#include <map>
-#include <cmath>
 
 using namespace std;
 
@@ -44,6 +44,11 @@ vector<string> SplitIntoWords(const string &text) {
 }
 
 struct Document {
+
+    Document() {}
+
+    Document(int id, double relevance) : id(id), relevance(relevance) {}
+
     int id;
     double relevance;
 };
@@ -148,10 +153,7 @@ private:
 
         vector<Document> result;
         for (const auto &[id, relevance]: doc_to_relevance) {
-            Document doc;
-            doc.id = id;
-            doc.relevance = relevance;
-            result.push_back(doc);
+            result.push_back(Document(id, relevance));
         }
 
         return result;
