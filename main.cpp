@@ -66,15 +66,13 @@ public:
         const auto words_size = words.size();
         document_count_++;
 
-        unordered_map<string, double> &frequencies = doc_word_tf[document_id];
+        double tf_unit = 1.0 / words_size;
         for (const auto &word: words) {
-            word_to_doc_ids[word].insert(document_id);
-            frequencies[word] += 1.0 / words_size;
+            word_to_doc_and_tf[word][document_id] += tf_unit;
         }
     }
 
     vector<Document> FindTopDocuments(const string &raw_query) const {
-
         const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query);
 
@@ -97,8 +95,7 @@ private:
     };
 
     int document_count_ = 0;
-    unordered_map<int, unordered_map<string, double>> doc_word_tf;
-    unordered_map<string, set<int>> word_to_doc_ids;
+    unordered_map<string, unordered_map<int, double>> word_to_doc_and_tf;
     unordered_set<string> stop_words_;
 
     bool IsStopWord(const string &word) const {
@@ -133,29 +130,24 @@ private:
     vector<Document> FindAllDocuments(const Query &query) const {
 
         map<int, double> doc_to_relevance;
-
-        for (const auto &pw: query.plus_words) {
-            if (word_to_doc_ids.contains(pw)) {
-                const set<int> &matched_docs_ids = word_to_doc_ids.at(pw);
-                const int matched_docs_size = static_cast<int>(matched_docs_ids.size());
-                double word_idf = log(((double) document_count_) / matched_docs_size);
-                for (const auto &doc_id: matched_docs_ids) {
-                    double dtf = doc_word_tf.at(doc_id).at(pw);
-                    doc_to_relevance[doc_id] += dtf * word_idf;
+        for (const string &plus_word: query.plus_words) {
+            if (word_to_doc_and_tf.contains(plus_word)) {
+                const unordered_map<int, double> &doc_to_tf = word_to_doc_and_tf.at(plus_word);
+                const int total_docs_with_word = static_cast<int>(doc_to_tf.size());
+                double idf = log(((double) document_count_) / total_docs_with_word);
+                for (const auto &[doc_id, tf]: doc_to_tf) {
+                    doc_to_relevance[doc_id] += tf * idf;
                 }
             }
         }
 
-        unordered_set<int> minus_docs;
-        for (const auto &mw: query.minus_words) {
-            if (word_to_doc_ids.contains(mw)) {
-                const auto &matched_docs = word_to_doc_ids.at(mw);
-                minus_docs.insert(matched_docs.begin(), matched_docs.end());
+        for (const string &minus_word: query.minus_words) {
+            if (word_to_doc_and_tf.contains(minus_word)) {
+                const auto &minus_docs = word_to_doc_and_tf.at(minus_word);
+                for (const auto &[doc_id, _]: minus_docs) {
+                    doc_to_relevance.erase(doc_id);
+                }
             }
-        }
-
-        for (const auto &doc_id: minus_docs) {
-            doc_to_relevance.erase(doc_id);
         }
 
         vector<Document> result;
@@ -180,7 +172,7 @@ SearchServer CreateSearchServer() {
     }
 
 //    search_server.SetStopWords("is are was a an in the with near at"s);
-//    ifstream file("./book-war-and-peace.txt");
+//    ifstream file("/Users/aashitki/CLionProjects/cpp-test-repo/book-war-and-peace.txt");
 //
 //    cout << "reading file"s << endl;
 //    string line;
@@ -200,21 +192,21 @@ SearchServer CreateSearchServer() {
 
 int main() {
 
-//    auto start_indexing = std::chrono::high_resolution_clock::now();
+//    auto start_indexing = chrono::high_resolution_clock::now();
     const SearchServer search_server = CreateSearchServer();
-//    auto elapsed_indexing = std::chrono::high_resolution_clock::now() - start_indexing;
+//    auto elapsed_indexing = chrono::high_resolution_clock::now() - start_indexing;
 //    long elapsed_indexing_millis = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed_indexing).count();
 
 
 //    const string query = "white horse long tail";
     const string &query = ReadLine();
 
-//    auto start_searching = std::chrono::high_resolution_clock::now();
+//    auto start_searching = chrono::high_resolution_clock::now();
 
     const vector<Document> &documents = search_server.FindTopDocuments(query);
 
-//    auto elapsed_searching = std::chrono::high_resolution_clock::now() - start_searching;
-//    long elapsed_searching_micros = std::chrono::duration_cast<std::chrono::microseconds>(elapsed_searching).count();
+//    auto elapsed_searching = chrono::high_resolution_clock::now() - start_searching;
+//    long elapsed_searching_micros = std::chrono::duration_cast<chrono::microseconds>(elapsed_searching).count();
 //
 //    cout << "indexing: "s << elapsed_indexing_millis << " millis, searching: "s << elapsed_searching_micros
 //         << " micros"s
